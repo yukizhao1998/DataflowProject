@@ -21,7 +21,7 @@ class Datacenter:
             while True:
                 line=file.readline()
                 if line:
-                    self.datastore.append(line)
+                    self.datastore.append(line.strip('\n'))
                 else:
                     break
 
@@ -32,7 +32,7 @@ class Datacenter:
             while True:
                 line = file.readline()
                 if line:
-                    self.queries.append(line)
+                    self.queries.append(line.strip('\n'))
                 else:
                     break
 
