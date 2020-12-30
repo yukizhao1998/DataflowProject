@@ -15,7 +15,7 @@ if __name__ == '__main__':
     conf=Config()
     # initialize datacenters, each element is a Datacenter type item
     datacenters=generate_datacenters(conf.datacenter_num)
-    # datacenter with id 0 make the first 10 queries with lookup method EPI
+    # datacenter with id 0 make 20 random queries with lookup method EPI
     queries = datacenters[0].make_queries(20, "EPI")
 
 
