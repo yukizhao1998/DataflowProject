@@ -3,6 +3,36 @@ from config import Config
 import random
 import numpy as np
 import functools
+import collections
+ 
+
+class LRUCache(collections.OrderedDict):
+
+    def __init__(self, size=5):
+        self.size = size
+        self.cache = collections.OrderedDict()
+ 
+    def get(self, key):
+        if key in self.cache.keys():
+            
+            value = self.cache.pop(key)
+            
+            self.cache[key] = value
+            return True
+        else:
+            value = None
+            return False
+ 
+    def put(self, key):
+        if key in self.cache.keys():
+            self.cache.pop(key)
+            self.cache[key] = 0
+        elif self.size == len(self.cache):
+            self.cache.popitem(last=False)
+            self.cache[key] = 0
+        else:
+            self.cache[key] = 0
+
 
 class Datacenter:
     def __init__(self, id):
@@ -12,6 +42,7 @@ class Datacenter:
         self.datacenters=[]
         self.datastore=[]
         self.queries=[]
+        self.lrucache = LRUCache(size=self.conf.cache_size)
         self.load_datastore(self.conf.load_datastore_path+str(self.id))
         self.load_query(self.conf.load_query_path+str(self.id))
         self.bf=BloomFilter(len(self.datastore), self.conf.bf_fprate)
@@ -118,12 +149,18 @@ class Datacenter:
             if count % 1000 == 0:
                 print("%d / %d completed, with total cost %d."%(count, query_num, total_cost))
             count += 1
-            if method == 'P_I':
-                total_cost += self.perfect_indicator(query)
-            elif method == 'epi':
-                total_cost += self.epi(query)
-            elif method == 'cpi':
-                total_cost += self.cpi(query)
+            if self.lrucache.get() is False:
+                total_cost += self.conf.cache_cost # cache未找到的cost，在config里面设置
+                past_cost = total_cost
+                if method == 'P_I':
+                    total_cost += self.perfect_indicator(query)
+                elif method == 'epi':
+                    total_cost += self.epi(query)
+                elif method == 'cpi':
+                    total_cost += self.cpi(query)
+                if total_cost - past_cost < self.miss_penalty:
+                    self.lrucache.put(query)
+
         print("Datacenter %d: test %s completed with total cost %d"%(self.id, method, total_cost))
         return total_cost
 
