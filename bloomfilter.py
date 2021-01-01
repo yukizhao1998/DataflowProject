@@ -4,9 +4,6 @@ import hashlib
 import math
 import sys
 
-reload(sys)
-sys.setdefaultencoding('UTF-8')
-
 class BloomFilter():
 
     def __init__(self, total_items, false_positive_rate):
@@ -42,7 +39,7 @@ class BloomFilter():
         # print("is_member()'s key: ", item)
 
         # this is for midterm execution env input as bytes
-        key = item
+        key = str(item).encode()
 
         # this is for test_bloom_filter.py env input as string
         # key = item.encode()
@@ -59,7 +56,7 @@ class BloomFilter():
     def add(self, item):
 
         # key = item
-        key = unicode(item).encode()
+        key = str(item).encode()
         # print("key: ", key)
         for i in range(self.hashes):
             newKey = hashlib.md5(key).hexdigest()
