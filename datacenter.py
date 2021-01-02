@@ -5,7 +5,7 @@ import numpy as np
 import functools
 import collections
 from probables import (BloomFilter)
-
+from probables import (CountingBloomFilter)
 
 class LRUCache(collections.OrderedDict):
 
@@ -45,6 +45,8 @@ class Datacenter:
         self.lrucache = LRUCache()
         if self.conf.filter_type == "BloomFilter":
             self.filter = BloomFilter(est_elements = self.conf.cache_size, false_positive_rate=self.conf.fprate)
+        if self.conf.filter_type == "CountingBloomFilter":
+            self.filter = CountingBloomFilter(est_elements = self.conf.cache_size, false_positive_rate=self.conf.fprate)
         self.load_datastore(self.conf.load_datastore_path+str(self.id))
         #self.load_query(self.conf.load_query_path+str(self.id))
         # can define multiple filters here

@@ -7,7 +7,7 @@ class Config():
         self.cache_size = 1000
         #self.datastore_size = 200
         self.cache_cost = 1
-        self.filter_type = "BloomFilter"
+        self.filter_type = "CountingBloomFilter"
         self.load_datastore_path='./'+self.dataset+'/'+str(self.copy_number)+' copy/'
         self.load_query_path='./'+self.dataset+'/query/query_stream_'+self.dataset
         self.fprate=0.02 # filter's false positive rate
