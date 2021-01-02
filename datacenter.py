@@ -4,19 +4,19 @@ import random
 import numpy as np
 import functools
 import collections
- 
+from probables import (BloomFilter)
+
 
 class LRUCache(collections.OrderedDict):
 
-    def __init__(self, size=5):
-        self.size = size
+    def __init__(self):
+        conf = Config()
+        self.size = conf.cache_size
         self.cache = collections.OrderedDict()
  
     def get(self, key):
         if key in self.cache.keys():
-            
             value = self.cache.pop(key)
-            
             self.cache[key] = value
             return True
         else:
@@ -28,11 +28,12 @@ class LRUCache(collections.OrderedDict):
             self.cache.pop(key)
             self.cache[key] = 0
         elif self.size == len(self.cache):
-            self.cache.popitem(last=False)
+            item = self.cache.popitem(last=False)
             self.cache[key] = 0
+            return True, item
         else:
             self.cache[key] = 0
-
+        return False, None
 
 class Datacenter:
     def __init__(self, id):
@@ -40,15 +41,17 @@ class Datacenter:
         self.id=id
         self.conf=Config()
         self.datacenters=[]
-        self.datastore=[]
         self.queries=[]
-        self.lrucache = LRUCache(size=self.conf.cache_size)
+        self.lrucache = LRUCache()
+        if self.conf.filter_type == "BloomFilter":
+            self.filter = BloomFilter(est_elements = self.conf.cache_size, false_positive_rate=self.conf.fprate)
         self.load_datastore(self.conf.load_datastore_path+str(self.id))
-        self.load_query(self.conf.load_query_path+str(self.id))
-        self.bf=BloomFilter(len(self.datastore), self.conf.bf_fprate)
-        self.insert_bf()
+        #self.load_query(self.conf.load_query_path+str(self.id))
+        # can define multiple filters here
+        self.init_filter()
         self.cost_matrix=self.conf.cost_matrix
-        self.miss_penalty=self.conf.punishment
+        self.miss_penalty=self.conf.miss_penalty
+
 
     # load datastore into datastore list
     def load_datastore(self, load_datastore_path):
@@ -57,11 +60,12 @@ class Datacenter:
             while True:
                 line=file.readline()
                 if line:
-                    self.datastore.append(line.strip('\n'))
+                    self.lrucache.put(line.strip('\n'))
                 else:
                     break
 
     # load query into queries list
+    '''
     def load_query(self, load_query_path):
         print("Datacenter %d loading queries..." % self.id)
         with open(load_query_path, 'r') as file:
@@ -71,6 +75,7 @@ class Datacenter:
                     self.queries.append(line.strip('\n'))
                 else:
                     break
+    '''
     
     # cmp used to sort the datastores based on their cost from this datastore
     def cmp(self, x1, x2):
@@ -81,18 +86,38 @@ class Datacenter:
         self.datacenters=datacenters
         self.datacenters.sort(key=functools.cmp_to_key(self.cmp))
 
-    #insert items in datastore into bloomfilter
-    def insert_bf(self):
-        for item in self.datastore:
-            self.bf.add(item)
+    #insert items in datastore into filter
+    def init_filter(self):
+        for item in self.lrucache.cache.keys():
+            #print(item)
+            self.filter.add(item)
 
-    # lookup an item in bloomfilter, return True or False
-    def lookup_in_bloomfilter(self, item):
-        return self.bf.is_member(item)
+    #insert an item into filter
+    def insert_filter(self, item):
+        self.filter.add(item)
+
+    # lookup an item in filter, return True or False
+    def lookup_in_filter(self, item):
+        self.lrucache.get(item)
+        return self.filter.check(item)
+
+    # delete an item in filter
+    def delete_filter_item(self, item):
+        if self.conf.filter_type == "BloomFilter":
+            return
+        else:
+            self.filter.remove(item)
 
     # lookup an item in datacenter, false positive rate == 0, return True or False
     def lookup_groundtruth(self, item):
-        return item in self.datastore
+        return self.lrucache.get(item)
+
+    # insert an item into datacenter
+    def insert_datacenter(self, item):
+        kick, kicked_item = self.lrucache.put(item)
+        if kick:
+            self.delete_filter_item(kicked_item)
+        self.insert_filter(item)
 
     # Lookup with perfect indicator
     def perfect_indicator(self, query):
@@ -117,28 +142,37 @@ class Datacenter:
     def epi(self, query):
         cost = 0
         miss = self.miss_penalty
-        #positive_datacenters=[]
-        #groundtruth_datacenters=[]
+        positive_datacenters=[]
+        groundtruth_datacenters=[]
         # lookup every datacenter, datacenter is type Datacenter
         for datacenter in self.datacenters:
-            if datacenter.lookup_in_bloomfilter(query):
-                #positive_datacenters.append(datacenter.id)
+            if datacenter.lookup_in_filter(query):
+                positive_datacenters.append(datacenter.id)
                 cost+=self.cal_cost(datacenter.id)
                 if datacenter.lookup_groundtruth(query):
                     miss = 0
-                    #groundtruth_datacenters.append(datacenter.id)
-        #print("Datacenter %d queries %s, %d datacenters returns positive result, %d datacenters really have records."
-        #      %(self.id, query, len(positive_datacenters), len(groundtruth_datacenters)))
+                    groundtruth_datacenters.append(datacenter.id)
+        print("Datacenter %d queries %s, %d datacenters returns positive result, %d datacenters really have records."
+              %(self.id, query, len(positive_datacenters), len(groundtruth_datacenters)))
         return cost+miss
 
     # TODO
     # make the first query_number queries
     # can add lookup methods here
-    def make_queries(self, query_number, method):
-        sample_queries = random.sample(self.queries, query_number)
-        for query in sample_queries:
-            if method == 'EPI':
-                self.epi(query)
+    def make_query(self, query, method):
+        total_cost = 0
+        total_cost += self.conf.cache_cost
+        if not self.lrucache.get(query):
+            #total_cost += self.conf.cache_cost
+            past_cost = total_cost
+            if method == 'P_I':
+                total_cost += self.perfect_indicator(query)
+            elif method == 'epi':
+                total_cost += self.epi(query)
+            elif method == 'cpi':
+                total_cost += self.cpi(query)
+            if total_cost - past_cost < self.miss_penalty: #don't know what it means
+                self.insert_datacenter(query)
 
     # test all queries
     def test(self, method):
@@ -150,7 +184,7 @@ class Datacenter:
                 print("%d / %d completed, with total cost %d."%(count, query_num, total_cost))
             count += 1
             if self.lrucache.get() is False:
-                total_cost += self.conf.cache_cost # cache未找到的cost，在config里面设置
+                total_cost += self.conf.cache_cost
                 past_cost = total_cost
                 if method == 'P_I':
                     total_cost += self.perfect_indicator(query)

@@ -24,25 +24,24 @@ def extract_from_dataset():
             else:
                 break
 
-    word_list=random.sample(word_dict.keys(), 100)
+    word_list=random.sample(word_dict.keys(), int(conf.dataset))
     print("generating wordlist...")
     with open('wordlist.txt', 'w') as file:
         file.writelines(word_list)
 
     print("generating stream...")
-    with open('stream.txt', 'w') as file:
+    with open(conf.load_query_path, 'w') as file:
         for word in word_list:
             for i in range(word_dict[word]):
                 stream.append(word)
         random.shuffle(stream)
         file.writelines(stream)
-
     print("%d words in database, %d words in tests"%(len(word_dict.keys()), len(stream)))
 
 def distribute_copy(copy_num):
     file_list=[]
     for i in range(conf.datacenter_num):
-        file = open('./data/'+str(copy_num)+' copy/'+str(i), 'w')
+        file = open('./'+conf.dataset+'/'+str(copy_num)+' copy/'+str(i), 'w')
         file_list.append(file)
     with open('wordlist.txt', 'r') as file:
         while True:
@@ -53,7 +52,10 @@ def distribute_copy(copy_num):
                     file_list[ind].write(line)
             else:
                 break
+    for file in file_list:
+        file.close()
 
+'''
 def split_query():
     cnt = 0
     file_list = []
@@ -72,7 +74,7 @@ def split_query():
                 break
     for file in file_list:
         file.close()
-
+'''
 if __name__ == '__main__':
     extract_from_dataset()
 
@@ -80,4 +82,4 @@ if __name__ == '__main__':
     distribute_copy(3)
     distribute_copy(5)
 
-    split_query()
+    #split_query()

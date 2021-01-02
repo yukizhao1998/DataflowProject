@@ -2,14 +2,16 @@ import numpy as np
 class Config():
     def __init__(self):
         self.datacenter_num=17
-        self.copy_number=1 # 1, 3, 5
+        self.copy_number=3 # 1, 3, 5
         self.dataset="1000"
-        self.cache_size = 5
+        self.cache_size = 1000
+        #self.datastore_size = 200
         self.cache_cost = 1
+        self.filter_type = "BloomFilter"
         self.load_datastore_path='./'+self.dataset+'/'+str(self.copy_number)+' copy/'
-        self.load_query_path='./'+self.dataset+'/query/'
-        self.bf_fprate=0.02 # bloomfilter's false positive rate
-        self.punishment=100
+        self.load_query_path='./'+self.dataset+'/query/query_stream_'+self.dataset
+        self.fprate=0.02 # filter's false positive rate
+        self.miss_penalty=100
         self.cost_matrix=np.array([[ 1,  3,  6,  4, 10,  9,  5, 11, 33, 33,  4,  6,  4,  8,  7,  6,  9],
                                    [ 3,  1,  5,  3,  3, 10,  7, 11,  7,  9,  4,  6,  2,  7,  6,  7,  8],
                                    [ 6,  5,  1,  8,  5,  6,  6,  9,  6, 32,  4,  8,  5,  7, 33, 33, 33],
